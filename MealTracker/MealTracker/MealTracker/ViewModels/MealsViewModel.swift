@@ -4,27 +4,33 @@ import SwiftUI
 class MealsViewModel: ObservableObject {
     @Published var meals: [Meal] = []
     
-    // Додаємо прийом їжі
-    func addMeal(meal: Meal) {
+    // Додаємо новий прийом їжі
+    func addMeal(_ meal: Meal) {
         meals.append(meal)
         sortMeals()
     }
     
-    // Видаляємо прийом їжі
+    // Сортуємо так, щоб найновіші були зверху
+    func sortMeals() {
+        meals.sort { $0.date > $1.date }
+    }
+    
+    // Видалення
     func deleteMeal(at offsets: IndexSet) {
         meals.remove(atOffsets: offsets)
     }
     
-    // Сортувати, щоб найновіші були зверху
-    func sortMeals() {
-        // Сортуємо за датою початку від новішого до старішого
-        meals.sort { $0.startDate > $1.startDate }
-    }
-    
-    // Підрахунок інтервалу між прийомами
-    // (наприклад, коли треба порахувати різницю між завершенням попереднього та початком цього)
-    // Можна використати це в списку під час відображення
-    func intervalBetween(previous: Meal, current: Meal) -> TimeInterval {
-        return current.startDate.timeIntervalSince(previous.endDate)
+    // Обчислення інтервалу між двома прийомами (у хвилинах/годинах)
+    func intervalBetween(previous: Meal, current: Meal) -> String {
+        let interval = previous.date.timeIntervalSince(current.date)
+        let minutes = Int(interval / 60)
+        let absMinutes = abs(minutes)
+        if absMinutes < 60 {
+            return "\(absMinutes) хв"
+        } else {
+            let hours = absMinutes / 60
+            let remainderMinutes = absMinutes % 60
+            return "\(hours) год \(remainderMinutes) хв"
+        }
     }
 }
