@@ -6,28 +6,36 @@ struct MainView: View {
     
     var body: some View {
         NavigationView {
-            VStack {
-                // Кнопка "Add Meal"
-                Button(action: {
-                    showingAddMeal = true
-                }) {
-                    Text("Add Meal")
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-                .padding()
-                .sheet(isPresented: $showingAddMeal) {
-                    AddMealView(viewModel: viewModel)
-                }
+            ZStack {
+                // Фон
+                Color.black
+                    .ignoresSafeArea()
                 
-                // Список прийомів їжі
-                MealListView(viewModel: viewModel)
+                VStack {
+                    // Кнопка "Прийом їжі" (автоматично ставить поточний час)
+                    Button(action: {
+                        showingAddMeal = true
+                    }) {
+                        Text("Прийом їжі")
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.pink)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                    .padding()
+
+                    // Список
+                    MealListView(viewModel: viewModel)
+                }
+                .navigationBarTitle("Мій трекер їжі", displayMode: .inline)
             }
-            .navigationTitle("Meal Tracker")
+            .sheet(isPresented: $showingAddMeal) {
+                // Коли відкривається sheet, створюємо новий Meal з датою "зараз"
+                AddMealView(viewModel: viewModel,
+                            initialDate: Date()) // передаємо поточний час
+            }
         }
     }
 }
@@ -35,5 +43,6 @@ struct MainView: View {
 struct MainView_Previews: PreviewProvider {
     static var previews: some View {
         MainView()
+            .preferredColorScheme(.dark)
     }
 }
