@@ -3,132 +3,213 @@ import SwiftUI
 struct AddMealView: View {
     @ObservedObject var viewModel: MealsViewModel
     
-    // Поля для прийому їжі
-    @State private var name: String = "Прийом їжі"
-    @State private var startDate: Date = Date()
-    @State private var endDate: Date = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date()
-    @State private var selectedColor: Color = .blue
-    @State private var note: String = ""
+    // Передане початкове значення часу
+    var initialDate: Date
     
-    // Керування нотаткою
-    @State private var showNoteEditor: Bool = false
+    // Локальний стан (щоб користувач міг редагувати перед додаванням)
+    @State private var mealDate: Date = Date()
+    @State private var mealName: String = "Прийом їжі"
+    @State private var mealNote: String = ""
+    @State private var selectedColor: Color = .pink
+    
+    // Для відображення модального picker-а
+    @State private var showDatePicker = false
+    
+    // Для закриття вікна
     @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
         NavigationView {
-            VStack(alignment: .leading) {
-                // Початок
-                Text("Початок")
-                    .font(.subheadline)
-                DatePicker("", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(WheelDatePickerStyle())
+            ZStack {
+                Color.black.ignoresSafeArea()
                 
-                // Кінець
-                Text("Кінець")
-                    .font(.subheadline)
-                DatePicker("", selection: $endDate, displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(WheelDatePickerStyle())
-                
-                // Поле для назви
-                Text("Назва/Тип прийому")
-                    .font(.subheadline)
-                TextField("Наприклад, Сніданок", text: $name)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                // Вибір кольору (простий приклад з декількома кольорами)
-                Text("Колір:")
-                    .font(.subheadline)
-                HStack {
-                    ForEach([Color.blue, Color.green, Color.orange, Color.red, Color.purple, Color.yellow], id: \.self) { color in
-                        Circle()
-                            .fill(color)
-                            .frame(width: 30, height: 30)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.black, lineWidth: selectedColor == color ? 2 : 0)
-                            )
-                            .onTapGesture {
-                                selectedColor = color
-                            }
-                    }
-                }
-                .padding(.bottom, 8)
-                
-                // Нотатка
-                Button(action: {
-                    showNoteEditor = true
-                }) {
+                VStack(alignment: .leading, spacing: 16) {
+                    
+                    // Дата/час (натискаємо, щоб змінити)
                     HStack {
-                        Image(systemName: "square.and.pencil")
-                        Text("Додати нотатку")
+                        Text("Дата / Час")
+                            .foregroundColor(.white)
+                        Spacer()
+                        Button(action: {
+                            showDatePicker = true
+                        }) {
+                            Text(formattedDate(mealDate))
+                                .foregroundColor(.gray)
+                        }
                     }
-                }
-                .padding(.bottom, 8)
-                .sheet(isPresented: $showNoteEditor) {
-                    NoteEditorView(note: $note)
-                }
-                
-                // Кнопка "Зберегти"
-                Button(action: {
-                    saveMeal()
-                }) {
-                    Text("Зберегти")
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-                .padding(.top, 16)
-                
-                Spacer()
-            }
-            .padding()
-            .navigationBarTitle("Новий Прийом Їжі", displayMode: .inline)
-            .toolbar {
-                // Кнопка "Закрити", якщо треба
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрити") {
+                    
+                    // “Їжа” (назва/тип)
+                    HStack {
+                        Text("Їжа")
+                            .foregroundColor(.white)
+                        Spacer()
+                        TextField("Напр. 'Каша'", text: $mealName)
+                            .multilineTextAlignment(.trailing)
+                            .foregroundColor(.white)
+                    }
+                    
+                    // Нотатка
+                    HStack {
+                        Text("Нотатка")
+                            .foregroundColor(.white)
+                        Spacer()
+                        TextField("Деталі...", text: $mealNote)
+                            .multilineTextAlignment(.trailing)
+                            .foregroundColor(.white)
+                    }
+                    
+                    // Вибір кольору
+                    HStack {
+                        Text("Колір")
+                            .foregroundColor(.white)
+                        Spacer()
+                        ColorPickerView(selectedColor: $selectedColor)
+                    }
+                    
+                    // Кнопка "Зберегти"
+                    Button(action: {
+                        let meal = Meal(
+                            date: mealDate,
+                            name: mealName.isEmpty ? "Прийом їжі" : mealName,
+                            note: mealNote,
+                            color: selectedColor
+                        )
+                        viewModel.addMeal(meal)
                         presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Text("Зберегти")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.pink)
+                            .cornerRadius(12)
                     }
+                    .padding(.top, 24)
+                    
+                    Spacer()
                 }
+                .padding()
+                .navigationBarTitle("Їжа", displayMode: .inline)
+                .navigationBarItems(
+                    leading: Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }, label: {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.white)
+                    })
+                )
+                // Sheet із коліщатком для вибору часу
+                .sheet(isPresented: $showDatePicker) {
+                    DatePickerSheet(date: $mealDate, isPresented: $showDatePicker)
+                }
+            }
+            .onAppear {
+                // Ініціалізуємо mealDate значенням, яке прийшло
+                mealDate = initialDate
             }
         }
-    }
-    
-    private func saveMeal() {
-        // Створюємо Meal
-        let meal = Meal(
-            name: name.isEmpty ? "Прийом їжі" : name,
-            startDate: startDate,
-            endDate: endDate,
-            color: selectedColor,
-            note: note
-        )
-        // Додаємо у ViewModel
-        viewModel.addMeal(meal: meal)
-        // Закриваємо вікно
-        presentationMode.wrappedValue.dismiss()
     }
 }
 
-// Окремий екран для редагування нотатки
-struct NoteEditorView: View {
-    @Binding var note: String
-    @Environment(\.presentationMode) var presentationMode
+// Окремий View для вибору кольору (кілька кнопок або стандартний ColorPicker)
+struct ColorPickerView: View {
+    @Binding var selectedColor: Color
+    
+    // Можна зробити масив кольорів:
+    private let colors: [Color] = [.pink, .blue, .orange, .green, .purple, .yellow]
     
     var body: some View {
-        NavigationView {
-            VStack {
-                TextEditor(text: $note)
-                    .padding()
-                Button("Готово") {
-                    presentationMode.wrappedValue.dismiss()
+        HStack(spacing: 8) {
+            ForEach(colors, id: \.self) { color in
+                ZStack {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 30, height: 30)
+                    // Обвідка, якщо обраний колір
+                    if color == selectedColor {
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2)
+                            .frame(width: 34, height: 34)
+                    }
                 }
-                .padding()
+                .onTapGesture {
+                    selectedColor = color
+                }
             }
-            .navigationBarTitle("Нотатка", displayMode: .inline)
         }
     }
+}
+
+// Окремий View (sheet) із коліщатками дати й часу
+struct DatePickerSheet: View {
+    @Binding var date: Date
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        VStack {
+            HStack {
+                Button(action: {
+                    // Закрити без змін
+                    isPresented = false
+                }) {
+                    Image(systemName: "xmark")
+                        .foregroundColor(.white)
+                        .padding()
+                }
+                
+                Spacer()
+                
+                // Кнопки перемикання “Дата” / “Час” у скрінах – це кастомна логіка
+                // Можна зробити 2 DatePicker-и, але для спрощення просто один зі стилем коліщат
+                Text("Вибір дати та часу")
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Button(action: {
+                    // Застосувати і закрити
+                    isPresented = false
+                }) {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.white)
+                        .padding()
+                }
+            }
+            .background(Color.gray.opacity(0.4))
+            
+            DatePicker(
+                "",
+                selection: $date,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .datePickerStyle(WheelDatePickerStyle())
+            .labelsHidden()
+            .background(Color.black)
+            .colorScheme(.dark) // колесо в темній темі
+        }
+        .background(Color.black)
+    }
+}
+
+// Форматований рядок дати (приклад: "Сьогодні 20:49" або  "Пт 28/02 18:47")
+func formattedDate(_ date: Date) -> String {
+    let calendar = Calendar.current
+    // Перевіряємо, чи це сьогодні
+    if calendar.isDateInToday(date) {
+        let timeFormatter = DateFormatter()
+        timeFormatter.timeStyle = .short
+        return "Сьогодні " + timeFormatter.string(from: date)
+    }
+    // Перевіряємо, чи це вчора
+    if calendar.isDateInYesterday(date) {
+        let timeFormatter = DateFormatter()
+        timeFormatter.timeStyle = .short
+        return "Вчора " + timeFormatter.string(from: date)
+    }
+    
+    // Інакше просто формат: дд/мм час:хв
+    let formatter = DateFormatter()
+    formatter.dateFormat = "E d/MM HH:mm"
+    return formatter.string(from: date)
 }
