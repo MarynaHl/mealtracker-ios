@@ -5,141 +5,82 @@ struct MealListView: View {
     
     var body: some View {
         ScrollView {
-            // Використаємо LazyVStack, щоб відображати список
             LazyVStack(spacing: 0) {
-                // Групуємо за днем
-                ForEach(groupedMealsByDate(), id: \.key) { date, meals in
-                    // Заголовок дня
-                    Text(formatDateForSection(date))
-                        .font(.headline)
-                        .padding(.top, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading)
-                    
-                    // Перелік прийомів їжі за цей день
-                    ForEach(meals) { meal in
-                        // Свайп для видалення через встроєний SwiftUI підхід
-                        SwipeToDeleteRow {
-                            mealRow(meal: meal)
-                        } onDelete: {
-                            if let index = viewModel.meals.firstIndex(where: { $0.id == meal.id }) {
-                                viewModel.meals.remove(at: index)
-                            }
+                // Проходимося по масиву прийомів
+                ForEach(viewModel.meals) { meal in
+                    // Один рядок
+                    SwipeToDeleteRow {
+                        mealRow(meal: meal)
+                    } onDelete: {
+                        if let index = viewModel.meals.firstIndex(where: { $0.id == meal.id }) {
+                            viewModel.meals.remove(at: index)
                         }
                     }
-                    // Трохи відступу після списку конкретного дня
-                    .padding(.bottom, 4)
                 }
             }
         }
     }
     
-    // Одне рядкове у списку
+    // Відображення одного рядка
     private func mealRow(meal: Meal) -> some View {
         VStack(alignment: .leading, spacing: 4) {
+            // Верхня частина з назвою та годиною
             HStack {
-                // Кольорове коло та назва
                 Circle()
                     .fill(meal.color)
                     .frame(width: 16, height: 16)
                 
                 Text(meal.name)
                     .font(.subheadline)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
                 
                 Spacer()
                 
-                Text("\(timeString(from: meal.startDate)) - \(timeString(from: meal.endDate))")
+                Text(timeString(from: meal.date))
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
             }
             
-            // Інтервал між попереднім прийомом
-            Text("Інтервал: \(intervalToString(meal: meal))")
-                .font(.caption)
-                .foregroundColor(.gray)
+            // Нотатка (якщо не пуста)
+            if !meal.note.isEmpty {
+                Text(meal.note)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            
+            // Інтервал від попереднього прийому
+            if let index = viewModel.meals.firstIndex(where: { $0.id == meal.id }),
+               index < viewModel.meals.count - 1 {
+                let previousMeal = viewModel.meals[index + 1]
+                Text("Інтервал: \(viewModel.intervalBetween(previous: previousMeal, current: meal))")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+            
+            Divider().background(Color.gray.opacity(0.3))
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color.white)
-        // Тонка лінія знизу як розділювач
-        .overlay(
-            Divider()
-                .background(Color.gray.opacity(0.2)),
-            alignment: .bottom
-        )
+        .background(Color.clear)
     }
     
-    // Повертає години:хвилини з Date
+    // Формуємо рядок “hh:mm” (або 24-год формат)
     private func timeString(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
-    
-    // Визначення інтервалу між поточним та попереднім прийомом
-    // Якщо попереднього немає, то "-"
-    private func intervalToString(meal: Meal) -> String {
-        // Знаходимо індекс у viewModel
-        guard let index = viewModel.meals.firstIndex(where: { $0.id == meal.id }),
-              index < viewModel.meals.count - 1 else {
-            return "-"
-        }
-        
-        let previousMeal = viewModel.meals[index + 1]
-        let interval = viewModel.intervalBetween(previous: previousMeal, current: meal)
-        
-        // Інтервал у хвилинах
-        let minutes = Int(interval / 60)
-        // Можна перевести у години і хвилини
-        if minutes < 60 {
-            return "\(minutes) хв"
-        } else {
-            let hours = minutes / 60
-            let remainderMinutes = minutes % 60
-            return "\(hours) год \(remainderMinutes) хв"
-        }
-    }
-    
-    // Групуємо прийоми їжі за датою (лише день, без часу)
-    private func groupedMealsByDate() -> [(key: Date, value: [Meal])] {
-        let grouped = Dictionary(grouping: viewModel.meals) { meal -> Date in
-            // Беремо лише день, місяць і рік
-            let calendar = Calendar.current
-            let components = calendar.dateComponents([.year, .month, .day], from: meal.startDate)
-            return calendar.date(from: components) ?? meal.startDate
-        }
-        // Сортуємо за ключем (датою) від новішого до старішого
-        let sorted = grouped.sorted { $0.key > $1.key }
-        return sorted
-    }
-    
-    // Формат дати в заголовку (сьогодні, вчора або "dd MMMM")
-    private func formatDateForSection(_ date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return "Сьогодні"
-        } else if calendar.isDateInYesterday(date) {
-            return "Вчора"
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "dd MMMM"
-            return formatter.string(from: date)
-        }
-    }
 }
 
-// Простий компонент для реалізації свайпу з видаленням
+// Свайп-видалення
 struct SwipeToDeleteRow<Content: View>: View {
     let content: () -> Content
     let onDelete: () -> Void
     
     @State private var offset: CGFloat = 0
-    @State private var isDeleting: Bool = false
     
     var body: some View {
         ZStack(alignment: .leading) {
-            // Фон під елементом
             Color.red
                 .overlay(
                     Text("Delete")
@@ -148,8 +89,8 @@ struct SwipeToDeleteRow<Content: View>: View {
                     alignment: .leading
                 )
             
-            // Сам елемент
             content()
+                .background(Color.black) // щоб було темно
                 .offset(x: offset)
                 .gesture(
                     DragGesture()
@@ -160,12 +101,10 @@ struct SwipeToDeleteRow<Content: View>: View {
                         }
                         .onEnded { gesture in
                             if gesture.translation.width < -100 {
-                                // Підтверджуємо видалення
                                 withAnimation {
                                     onDelete()
                                 }
                             } else {
-                                // Відміняємо свайп
                                 withAnimation {
                                     offset = 0
                                 }
@@ -173,7 +112,6 @@ struct SwipeToDeleteRow<Content: View>: View {
                         }
                 )
         }
-        .frame(maxWidth: .infinity)
         .frame(height: 60)
     }
 }
