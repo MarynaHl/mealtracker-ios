@@ -4,10 +4,10 @@ import SwiftUI
 struct Meal: Identifiable {
     let id: UUID
     var date: Date          // Одна дата/час прийому
-    var name: String        // Назва/тип ("Сніданок", "Обід" тощо)
+    var name: String        // Назва прийому (Сніданок, Обід, тощо)
     var note: String        // Нотатка
-    var color: Color        // Колір іконки чи позначення (якщо треба)
-
+    var color: Color        // Колір для візуальної позначки
+    
     init(
         id: UUID = UUID(),
         date: Date,

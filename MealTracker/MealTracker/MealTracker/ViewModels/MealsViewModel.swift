@@ -4,33 +4,53 @@ import SwiftUI
 class MealsViewModel: ObservableObject {
     @Published var meals: [Meal] = []
     
+    // Словник: "Назва" -> "Колір" (для автоматичного підстановлення)
+    let defaultColorMapping: [String : Color] = [
+        "Сніданок": .green,
+        "Обід": .pink,
+        "Вечеря": .blue,
+        "Перекус": .orange
+        // Можна розширити
+    ]
+    
+    // Зворотній пошук: шукаємо "Назву" за заданим кольором (якщо така є)
+    func nameForColor(_ color: Color) -> String? {
+        defaultColorMapping.first(where: { $0.value == color })?.key
+    }
+    
+    // Або колір за назвою
+    func colorForName(_ name: String) -> Color? {
+        defaultColorMapping[name]
+    }
+    
     // Додаємо новий прийом їжі
     func addMeal(_ meal: Meal) {
         meals.append(meal)
         sortMeals()
     }
     
-    // Сортуємо так, щоб найновіші були зверху
+    // Сортувати, щоб найновіші були зверху
     func sortMeals() {
         meals.sort { $0.date > $1.date }
     }
     
-    // Видалення
+    // Видаляємо
     func deleteMeal(at offsets: IndexSet) {
         meals.remove(atOffsets: offsets)
     }
     
-    // Обчислення інтервалу між двома прийомами (у хвилинах/годинах)
-    func intervalBetween(previous: Meal, current: Meal) -> String {
-        let interval = previous.date.timeIntervalSince(current.date)
+    // Повертає відформатований інтервал часу (між двома прийомами)
+    // Використовуємо absolute value, щоб уникнути NaN або від’ємного результату
+    func intervalBetween(later: Meal, earlier: Meal) -> String {
+        let interval = abs(later.date.timeIntervalSince(earlier.date))
         let minutes = Int(interval / 60)
-        let absMinutes = abs(minutes)
-        if absMinutes < 60 {
-            return "\(absMinutes) хв"
+        
+        if minutes < 60 {
+            return "\(minutes) хв"
         } else {
-            let hours = absMinutes / 60
-            let remainderMinutes = absMinutes % 60
-            return "\(hours) год \(remainderMinutes) хв"
+            let hours = minutes / 60
+            let remainder = minutes % 60
+            return "\(hours) год \(remainder) хв"
         }
     }
 }
